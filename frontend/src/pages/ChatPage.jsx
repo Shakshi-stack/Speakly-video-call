@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import useAuthUser from "../hooks/useAuthUser";
 import { useQuery } from "@tanstack/react-query";
 import { getStreamToken } from "../lib/api";
+import VoiceRecorder from "../components/VoiceRecorder";
 
 import {
   Channel,
@@ -33,7 +34,7 @@ const ChatPage = () => {
   const { data: tokenData } = useQuery({
     queryKey: ["streamToken"],
     queryFn: getStreamToken,
-    enabled: !!authUser, // this will run only when authUser is available
+    enabled: !!authUser,
   });
 
   useEffect(() => {
@@ -54,12 +55,7 @@ const ChatPage = () => {
           tokenData.token
         );
 
-        //
         const channelId = [authUser._id, targetUserId].sort().join("-");
-
-        // you and me
-        // if i start the chat => channelId: [myId, yourId]
-        // if you start the chat => channelId: [yourId, myId]  => [myId,yourId]
 
         const currChannel = client.channel("messaging", channelId, {
           members: [authUser._id, targetUserId],
@@ -95,15 +91,47 @@ const ChatPage = () => {
   if (loading || !chatClient || !channel) return <ChatLoader />;
 
   return (
-    <div className="h-[93vh]">
+    <div className="h-[93vh] max-w-5xl mx-auto bg-gradient-to-tr from-purple-700 via-indigo-800 to-blue-900 rounded-lg shadow-xl overflow-hidden">
       <Chat client={chatClient}>
         <Channel channel={channel}>
-          <div className="w-full relative">
+          <div className="w-full relative flex flex-col h-full bg-white rounded-lg shadow-md">
             <CallButton handleVideoCall={handleVideoCall} />
             <Window>
-              <ChannelHeader />
-              <MessageList />
-              <MessageInput focus />
+              <ChannelHeader
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
+              />
+              <MessageList
+                className="px-4 py-2 bg-gray-50"
+                messageActions={["react", "edit", "delete"]}
+              />
+              <MessageInput
+                focus
+                className="border-t border-gray-300 bg-white shadow-inner"
+              />
+              <div className="px-4 py-2 border-t border-gray-300 bg-gray-100">
+                <VoiceRecorder
+                  onRecordingComplete={(audioBlob) => {
+                    const file = new File([audioBlob], "recording.webm", {
+                      type: "audio/webm",
+                    });
+
+                    channel.sendFile(file).then((res) => {
+                      channel.sendMessage({
+                        text: "Sent a voice message 🎙️",
+                        attachments: [
+                          {
+                            type: "file",
+                            asset_url: res.file,
+                            file_size: file.size,
+                            mime_type: file.type,
+                            title: file.name,
+                          },
+                        ],
+                      });
+                    });
+                  }}
+                />
+              </div>
             </Window>
           </div>
           <Thread />
